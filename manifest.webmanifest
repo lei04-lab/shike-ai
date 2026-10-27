@@ -1,0 +1,17 @@
+{
+  "name": "食刻AI · 拍照测热量",
+  "short_name": "食刻AI",
+  "description": "拍照识别食物热量，提供科学减肥增肌建议、专属食谱与训练计划，内置AI营养师对话。",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFF6EA",
+  "theme_color": "#EE8B3A",
+  "lang": "zh-CN",
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
