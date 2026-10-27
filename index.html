@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>食刻AI · 拍照测热量</title>
+<style>
+:root{
+  --green:#EE8B3A; --green-d:#C96F24; --green-l:#FDEBD6;
+  --orange:#FF7A45; --red:#FF6B6B; --yellow:#FFC53D;
+  --ink:#5B3A26; --sub:#B08B68; --bg:#FFF6EA; --card:#ffffff;
+  --shadow:0 8px 24px rgba(200,140,80,.14);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+  background:var(--bg);color:var(--ink);max-width:480px;margin:0 auto;
+  min-height:100vh;display:flex;flex-direction:column;box-shadow:0 0 40px rgba(180,130,80,.15);
+}
+/* ---------- 页面容器 ---------- */
+.page{flex:1;overflow-y:auto;padding:16px 16px 90px;display:none;animation:fade .25s}
+.page.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+/* ---------- 底部导航 ---------- */
+.tabbar{
+  position:sticky;bottom:0;display:flex;background:#fff;border-top:1px solid #F2E3CE;
+  padding:6px 0 calc(6px + env(safe-area-inset-bottom));z-index:50;
+}
+.tab{flex:1;text-align:center;font-size:11px;color:var(--sub);cursor:pointer;padding:4px 0}
+.tab .ic{font-size:22px;display:block;margin-bottom:2px;transition:transform .2s}
+.tab .ic img{width:26px;height:26px;border-radius:50%;object-fit:cover;vertical-align:middle}
+.msg .avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover}
+.feat .fi img{width:30px;height:30px;border-radius:50%;object-fit:cover;vertical-align:middle}
+.tab.on{color:var(--green);font-weight:600}
+.tab.on .ic{transform:scale(1.15)}
+.tab.scan-tab .ic{
+  width:52px;height:52px;margin:-22px auto 2px;border-radius:50%;
+  background:linear-gradient(135deg,var(--green),#FFB877);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:26px;
+  box-shadow:0 6px 16px rgba(238,139,58,.4);border:3px solid #fff;
+}
+/* ---------- 通用组件 ---------- */
+.card{background:var(--card);border-radius:22px;padding:16px;box-shadow:var(--shadow);margin-bottom:14px}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  border:none;border-radius:16px;padding:12px 20px;font-size:15px;font-weight:600;
+  cursor:pointer;transition:transform .15s,opacity .15s;
+}
+.btn:active{transform:scale(.96)}
+.btn-p{background:linear-gradient(135deg,var(--green),#FFB877);color:#fff;width:100%}
+.btn-o{background:var(--green-l);color:var(--green-d);width:100%}
+.chip{
+  display:inline-block;padding:6px 14px;border-radius:999px;background:#fff;
+  border:1px solid #F2E3CE;font-size:13px;color:var(--sub);cursor:pointer;margin:0 6px 8px 0;
+}
+.chip.on{background:var(--green);color:#fff;border-color:var(--green)}
+.sec-title{font-size:17px;font-weight:700;margin:18px 0 10px;display:flex;align-items:center;gap:6px}
+.sec-title::before{content:"";width:4px;height:16px;border-radius:2px;background:var(--green)}
+.muted{color:var(--sub);font-size:13px}
+/* ---------- 首页 ---------- */
+.hero{
+  border-radius:24px;overflow:hidden;position:relative;color:var(--ink);margin-bottom:14px;
+  background:linear-gradient(180deg,#FFF1DE,#FFE3C2);
+}
+.hero img{width:100%;height:170px;object-fit:cover;display:block}
+.hero .inner{position:relative;padding:6px 20px 20px;text-align:center}
+.hero h1{font-size:22px;margin-bottom:6px}
+.hero p{font-size:13px;color:var(--sub)}
+.ring-wrap{display:flex;align-items:center;gap:18px}
+.ring{position:relative;width:110px;height:110px;flex:none}
+.ring svg{transform:rotate(-90deg)}
+.ring .num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring .num b{font-size:22px}
+.ring .num span{font-size:11px;color:var(--sub)}
+.macro{flex:1;display:flex;flex-direction:column;gap:10px}
+.macro-row{font-size:13px}
+.macro-row .bar{height:8px;border-radius:4px;background:#F8EDDD;margin-top:4px;overflow:hidden}
+.macro-row .bar i{display:block;height:100%;border-radius:4px}
+.feat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.feat{
+  background:#fff;border-radius:18px;padding:14px 6px;text-align:center;font-size:12px;
+  cursor:pointer;box-shadow:var(--shadow);color:var(--ink);
+}
+.feat .fi{font-size:26px;display:block;margin-bottom:6px}
+.hist-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #F7EBDB}
+.hist-item:last-child{border:none}
+.hist-item .e{font-size:28px}
+.hist-item .info{flex:1}
+.hist-item .kcal{font-weight:700;color:var(--orange)}
+/* ---------- 识别页 ---------- */
+.scan-box{
+  border:2px dashed #F5CDA0;border-radius:24px;background:#fff;
+  padding:34px 20px;text-align:center;
+}
+.scan-box .big{font-size:56px;margin-bottom:10px}
+.scan-actions{display:flex;gap:12px;margin-top:18px}
+.preview-wrap{position:relative;border-radius:16px;overflow:hidden;margin-bottom:14px}
+.preview-wrap img{width:100%;display:block;max-height:300px;object-fit:cover}
+.scan-line{
+  position:absolute;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--green),transparent);
+  box-shadow:0 0 12px var(--green);animation:scan 1.6s linear infinite;
+}
+@keyframes scan{0%{top:0}100%{top:100%}}
+.scan-mask{position:absolute;inset:0;background:rgba(120,70,20,.25);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600}
+.result-food{display:flex;align-items:center;gap:14px}
+.result-food .e{font-size:46px}
+.kcal-big{font-size:30px;font-weight:800;color:var(--orange)}
+.rate-badge{padding:4px 12px;border-radius:999px;font-size:12px;font-weight:700;color:#fff}
+.score-bar{height:10px;border-radius:5px;background:#F8EDDD;overflow:hidden;margin:8px 0 4px}
+.score-bar i{display:block;height:100%;border-radius:5px;transition:width .8s}
+.nutri-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+.nutri{background:#FFF8EF;border-radius:16px;padding:10px;text-align:center}
+.nutri b{font-size:17px;display:block}
+.nutri span{font-size:11px;color:var(--sub)}
+.cand-list{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.cand{padding:6px 12px;border-radius:999px;background:#FDEFE0;font-size:12px;cursor:pointer;border:1px solid transparent}
+.cand:hover{border-color:var(--green)}
+/* ---------- 食物库 ---------- */
+.search-bar{display:flex;gap:8px;margin-bottom:12px}
+.search-bar input{
+  flex:1;border:1px solid #F0DFC8;border-radius:16px;padding:11px 14px;font-size:14px;outline:none;background:#fff;
+}
+.search-bar input:focus{border-color:var(--green)}
+.food-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #F7EBDB;cursor:pointer}
+.food-item:last-child{border:none}
+.food-item .e{font-size:30px;width:44px;height:44px;background:#FDF1E2;border-radius:16px;display:flex;align-items:center;justify-content:center}
+.food-item .info{flex:1}
+.food-item .info .nm{font-weight:600;font-size:15px}
+.food-item .kcal{font-weight:700;color:var(--orange);font-size:14px}
+/* ---------- 计划页 ---------- */
+.form-row{display:flex;gap:10px;margin-bottom:12px}
+.form-item{flex:1}
+.form-item label{font-size:12px;color:var(--sub);display:block;margin-bottom:5px}
+.form-item input,.form-item select{
+  width:100%;border:1px solid #F0DFC8;border-radius:14px;padding:10px 12px;font-size:14px;outline:none;background:#fff;
+}
+.form-item input:focus,.form-item select:focus{border-color:var(--green)}
+.metric-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.metric{background:#FFF8EF;border-radius:18px;padding:14px;text-align:center}
+.metric b{font-size:24px;display:block}
+.metric span{font-size:12px;color:var(--sub)}
+.advice-box{border-left:4px solid var(--green);background:var(--green-l);border-radius:0 12px 12px 0;padding:12px 14px;font-size:14px;line-height:1.7;margin-top:12px}
+.meal{border:1px solid #F5E7D3;border-radius:16px;padding:12px;margin-bottom:10px}
+.meal .mt{font-weight:700;font-size:14px;margin-bottom:6px;display:flex;justify-content:space-between}
+.meal .foods{font-size:13px;color:var(--sub);line-height:1.8}
+.train-day{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid #F7EBDB;font-size:13px}
+.train-day:last-child{border:none}
+.train-day .d{flex:none;width:64px;font-weight:700;color:var(--green-d)}
+/* ---------- AI 助手 ---------- */
+.chat-wrap{display:flex;flex-direction:column;height:calc(100vh - 130px)}
+.chat-log{flex:1;overflow-y:auto;padding:4px 0 12px}
+.msg{display:flex;margin-bottom:14px;gap:8px}
+.msg .avatar{width:36px;height:36px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:20px}
+.msg.ai .avatar{background:var(--green-l)}
+.msg.me{flex-direction:row-reverse}
+.msg.me .avatar{background:#F3E6D4}
+.bubble{max-width:76%;padding:11px 14px;border-radius:16px;font-size:14px;line-height:1.7;white-space:pre-wrap}
+.msg.ai .bubble{background:#fff;border-top-left-radius:4px;box-shadow:var(--shadow)}
+.msg.me .bubble{background:var(--green);color:#fff;border-top-right-radius:4px}
+.typing i{display:inline-block;width:6px;height:6px;border-radius:50%;background:#DCC3A4;margin:0 2px;animation:tp 1s infinite}
+.typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
+@keyframes tp{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+.chat-input{display:flex;gap:8px;padding-top:8px;border-top:1px solid #F5E7D3}
+.chat-input input{flex:1;border:1px solid #F0DFC8;border-radius:999px;padding:11px 16px;font-size:14px;outline:none}
+.chat-input button{border:none;background:var(--green);color:#fff;border-radius:999px;padding:0 20px;font-size:15px;cursor:pointer}
+/* ---------- 弹层 ---------- */
+.modal{position:fixed;inset:0;background:rgba(91,58,38,.5);display:none;align-items:flex-end;justify-content:center;z-index:100}
+.modal.show{display:flex}
+.modal .sheet{
+  background:#fff;border-radius:26px 26px 0 0;width:100%;max-width:480px;max-height:82vh;
+  overflow-y:auto;padding:20px;animation:up .3s;
+}
+@keyframes up{from{transform:translateY(60px);opacity:0}to{transform:none;opacity:1}}
+.sheet .close{float:right;font-size:22px;color:var(--sub);cursor:pointer;line-height:1}
+video{width:100%;border-radius:14px;background:#000}
+.empty{text-align:center;color:var(--sub);padding:30px 0;font-size:13px}
+.toast{
+  position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(91,58,38,.92);color:#fff;
+  padding:10px 20px;border-radius:999px;font-size:13px;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none;
+}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<!-- ============ 首页 ============ -->
+<div class="page active" id="page-home">
+  <div class="hero">
+    <img src="./hero.jpg" alt="">
+    <div class="inner">
+      <h1>食刻AI 🐻🐼</h1>
+      <p>拍一拍，热量即刻知晓 · 布布一二陪你管理身材</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sec-title" style="margin-top:0">今日摄入</div>
+    <div class="ring-wrap">
+      <div class="ring">
+        <svg width="110" height="110">
+          <circle cx="55" cy="55" r="48" fill="none" stroke="#F8EDDD" stroke-width="10"/>
+          <circle id="ringFg" cx="55" cy="55" r="48" fill="none" stroke="#EE8B3A" stroke-width="10"
+                  stroke-linecap="round" stroke-dasharray="301.6" stroke-dashoffset="301.6"/>
+        </svg>
+        <div class="num"><b id="todayKcal">0</b><span>/ <span id="targetKcalHome">1800</span> kcal</span></div>
+      </div>
+      <div class="macro">
+        <div class="macro-row">蛋白质 <b id="mP" style="float:right">0g</b>
+          <div class="bar"><i style="width:0%;background:#EE8B3A" id="barP"></i></div></div>
+        <div class="macro-row">碳水 <b id="mC" style="float:right">0g</b>
+          <div class="bar"><i style="width:0%;background:#ffc53d" id="barC"></i></div></div>
+        <div class="macro-row">脂肪 <b id="mF" style="float:right">0g</b>
+          <div class="bar"><i style="width:0%;background:#ff8a3d" id="barF"></i></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec-title">快捷功能</div>
+  <div class="feat-grid">
+    <div class="feat" onclick="go('scan')"><span class="fi">📷</span>拍照识别</div>
+    <div class="feat" onclick="go('foods')"><span class="fi">🔍</span>食物查询</div>
+    <div class="feat" onclick="go('plan')"><span class="fi">📋</span>身材计划</div>
+    <div class="feat" onclick="go('ai')"><span class="fi"><img src="./yiyi.png" alt=""></span>布布一二</div>
+  </div>
+
+  <div class="sec-title">今日摄入详细 <button class="btn btn-o" style="padding:6px 12px;font-size:12px;width:auto;float:right" onclick="manualAdd()">＋ 手动添加</button></div>
+  <div class="card" id="histCard"><div class="empty">还没有记录哦～布布一二等你拍第一道美食 🐻🐼</div></div>
+  <div class="card" id="dailyAdvice" style="display:none;background:#FFF4E3"></div>
+</div>
+
+<!-- ============ 拍照识别 ============ -->
+<div class="page" id="page-scan">
+  <div class="sec-title" style="margin-top:4px">拍照测热量</div>
+  <div id="scanHome">
+    <div class="scan-box">
+      <div class="big">🍽️</div>
+      <div style="font-weight:700;margin-bottom:6px">对准食物拍一张</div>
+      <div class="muted">布布一二帮你认出它，并算出热量和营养</div>
+      <div class="scan-actions">
+        <button class="btn btn-p" onclick="openCamera()">📸 拍照</button>
+        <button class="btn btn-o" onclick="document.getElementById('fileAlbum').click()">🖼️ 相册上传</button>
+      </div>
+      <input type="file" id="fileAlbum" accept="image/*" style="display:none" onchange="onFile(event)">
+      <input type="file" id="fileCamera" accept="image/*" capture="environment" style="display:none" onchange="onFile(event)">
+    </div>
+    <div class="card" style="margin-top:14px">
+      <div class="muted" style="line-height:1.9">💡 <b style="color:var(--ink)">拍摄小技巧</b><br>
+      · 光线充足、俯拍整盘食物效果最好<br>
+      · 一次拍一种食物识别更准确<br>
+      · 识别结果可手动修正，份量可调整</div>
+    </div>
+  </div>
+
+  <div id="scanResult" style="display:none"></div>
+</div>
+
+<!-- ============ 食物库 ============ -->
+<div class="page" id="page-foods">
+  <div class="sec-title" style="margin-top:4px">食物热量查询</div>
+  <div class="search-bar">
+    <input id="searchInput" placeholder="搜索食物，如：鸡胸肉 / 米饭" oninput="renderFoods()">
+  </div>
+  <div id="catChips" style="margin-bottom:6px"></div>
+  <div class="card" id="foodList"></div>
+</div>
+
+<!-- ============ 身材计划 ============ -->
+<div class="page" id="page-plan">
+  <div class="sec-title" style="margin-top:4px">身体数据 & 目标</div>
+  <div class="card">
+    <div class="form-row">
+      <div class="form-item"><label>身高 (cm)</label><input type="number" id="height" placeholder="170" value="170"></div>
+      <div class="form-item"><label>体重 (kg)</label><input type="number" id="weight" placeholder="65" value="65"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-item"><label>年龄</label><input type="number" id="age" placeholder="28" value="28"></div>
+      <div class="form-item"><label>性别</label>
+        <select id="gender"><option value="1">男</option><option value="0">女</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-item"><label>日常活动量</label>
+        <select id="activity">
+          <option value="1.2">久坐（办公室）</option>
+          <option value="1.375">轻度（每周1-3次运动）</option>
+          <option value="1.55" selected>中度（每周3-5次运动）</option>
+          <option value="1.725">高度（每周6-7次运动）</option>
+        </select></div>
+    </div>
+    <button class="btn btn-p" onclick="calcPlan()">生成我的专属计划</button>
+  </div>
+  <div id="planResult"></div>
+</div>
+
+<!-- ============ AI 助手 ============ -->
+<div class="page" id="page-ai">
+  <div class="sec-title" style="margin-top:4px">布布&一二 · 你的营养搭子</div>
+  <div class="muted" style="margin:-6px 0 10px">「人生不如意之事十有八九，常想一二，不思八九」🌿</div>
+  <div class="chat-wrap">
+    <div class="chat-log" id="chatLog"></div>
+    <div id="quickChips" style="padding-bottom:8px">
+      <span class="chip" onclick="ask('我想减肥，有什么建议？')">💪 减肥建议</span>
+      <span class="chip" onclick="ask('鸡胸肉热量多少？')">🍗 查热量</span>
+      <span class="chip" onclick="ask('给我一份减脂餐计划')">🥗 减脂餐</span>
+      <span class="chip" onclick="ask('怎么增肌？')">🏋️ 增肌指南</span>
+    </div>
+    <div class="chat-input">
+      <input id="chatInput" placeholder="和布布一二聊聊，如：米饭热量高吗" onkeydown="if(event.key==='Enter')sendChat()">
+      <button onclick="sendChat()">发送</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 底部导航 ============ -->
+<div class="tabbar">
+  <div class="tab on" data-p="home" onclick="go('home')"><span class="ic"><img src="./bubu.png" alt=""></span>首页</div>
+  <div class="tab" data-p="foods" onclick="go('foods')"><span class="ic"><img src="./yiyi.png" alt=""></span>食物库</div>
+  <div class="tab scan-tab" data-p="scan" onclick="go('scan')"><span class="ic">📷</span>识别</div>
+  <div class="tab" data-p="plan" onclick="go('plan')"><span class="ic"><img src="./bubu.png" alt=""></span>计划</div>
+  <div class="tab" data-p="ai" onclick="go('ai')"><span class="ic"><img src="./yiyi.png" alt=""></span>AI助手</div>
+</div>
+
+<!-- ============ 相机弹层 ============ -->
+<div class="modal" id="cameraModal">
+  <div class="sheet">
+    <span class="close" onclick="closeCamera()">✕</span>
+    <div class="sec-title" style="margin-top:0">拍摄食物</div>
+    <video id="camVideo" autoplay playsinline></video>
+    <button class="btn btn-p" style="margin-top:14px" onclick="snap()">📸 拍摄</button>
+    <div class="muted" style="margin-top:8px;text-align:center">若无法开启相机，请改用相册上传</div>
+  </div>
+</div>
+
+<!-- ============ 食物详情弹层 ============ -->
+<div class="modal" id="foodModal">
+  <div class="sheet" id="foodModalBody"></div>
+</div>
+
+<canvas id="cv" style="display:none"></canvas>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= 食物数据库（每100g） ================= */
+const FOODS = [
+  /* ---------- 主食 ---------------- */
+  {name:'米饭', e:'🍚', kcal:116, p:2.6, c:25.9, f:0.3, cat:'主食', tags:'米饭 白米饭 大米 大米饭'},
+  {name:'糙米饭', e:'🍚', kcal:111, p:2.6, c:23, f:0.9, cat:'主食', tags:'糙米 杂粮饭 粗粮饭'},
+  {name:'全麦面包', e:'🍞', kcal:246, p:8.5, c:44, f:3.4, cat:'主食', tags:'面包 全麦 吐司'},
+  {name:'白面包', e:'🍞', kcal:265, p:8.3, c:49, f:3.6, cat:'主食', tags:'白面包 切片面包'},
+  {name:'燕麦片', e:'🥣', kcal:367, p:15, c:61.6, f:6.7, cat:'主食', tags:'燕麦 麦片 早餐'},
+  {name:'面条', e:'🍜', kcal:137, p:4.5, c:27, f:0.7, cat:'主食', tags:'面条 挂面 拉面 汤面'},
+  {name:'乌冬面', e:'🍜', kcal:126, p:3.6, c:26, f:0.4, cat:'主食', tags:'乌冬 乌冬面'},
+  {name:'米粉', e:'🍜', kcal:119, p:2.2, c:26, f:0.3, cat:'主食', tags:'米粉 米线'},
+  {name:'河粉', e:'🍜', kcal:110, p:2.2, c:24, f:0.4, cat:'主食', tags:'河粉 沙河粉'},
+  {name:'玉米', e:'🌽', kcal:112, p:4, c:22.8, f:1.2, cat:'主食', tags:'玉米 甜玉米 苞米'},
+  {name:'红薯', e:'🍠', kcal:86, p:1.6, c:20.1, f:0.1, cat:'主食', tags:'红薯 地瓜 番薯'},
+  {name:'紫薯', e:'🍠', kcal:82, p:1.8, c:18.9, f:0.2, cat:'主食', tags:'紫薯'},
+  {name:'馒头', e:'🍞', kcal:223, p:7, c:47, f:1.1, cat:'主食', tags:'馒头 白面馒头'},
+  {name:'包子', e:'🥟', kcal:227, p:8.7, c:30, f:7.9, cat:'主食', tags:'包子 肉包 菜包 小笼包'},
+  {name:'饺子', e:'🥟', kcal:220, p:8, c:26, f:9, cat:'主食', tags:'饺子 水饺 蒸饺'},
+  {name:'白粥', e:'🥣', kcal:46, p:1.1, c:9.9, f:0.3, cat:'主食', tags:'白粥 稀饭 粥'},
+  {name:'小米粥', e:'🥣', kcal:46, p:1.4, c:8.4, f:0.7, cat:'主食', tags:'小米粥 小米'},
+  {name:'粽子', e:'🍙', kcal:210, p:5.5, c:36, f:4.8, cat:'主食', tags:'粽子 肉粽 糯米粽'},
+  {name:'汤圆', e:'🍡', kcal:231, p:4.5, c:44, f:4.2, cat:'主食', tags:'汤圆 元宵 芝麻汤圆'},
+  {name:'油条', e:'🥖', kcal:386, p:6.9, c:51, f:17.6, cat:'主食', tags:'油条 油炸鬼'},
+  /* ---------- 肉蛋 ---------------- */
+  {name:'鸡胸肉', e:'🍗', kcal:133, p:19.4, c:2.5, f:5, cat:'肉蛋', tags:'鸡胸肉 鸡肉 健身餐'},
+  {name:'鸡腿', e:'🍗', kcal:181, p:16, c:0, f:13, cat:'肉蛋', tags:'鸡腿 琵琶腿'},
+  {name:'鸡翅', e:'🍗', kcal:202, p:19, c:0, f:11.5, cat:'肉蛋', tags:'鸡翅 鸡中翅'},
+  {name:'鸡蛋', e:'🥚', kcal:144, p:13.3, c:2.8, f:8.8, cat:'肉蛋', tags:'鸡蛋 水煮蛋 煎蛋 炒蛋'},
+  {name:'鸭蛋', e:'🥚', kcal:180, p:12.6, c:3.1, f:13, cat:'肉蛋', tags:'鸭蛋 咸鸭蛋'},
+  {name:'牛肉(瘦)', e:'🥩', kcal:106, p:20.2, c:1.2, f:2.3, cat:'肉蛋', tags:'牛肉 瘦牛肉 牛排'},
+  {name:'酱牛肉', e:'🥩', kcal:246, p:31.4, c:3.2, f:11.9, cat:'肉蛋', tags:'酱牛肉 卤牛肉'},
+  {name:'五花肉', e:'🥓', kcal:395, p:13.2, c:2.4, f:37, cat:'肉蛋', tags:'五花肉 猪肉'},
+  {name:'猪里脊', e:'🥓', kcal:155, p:20.2, c:0.7, f:7.9, cat:'肉蛋', tags:'猪肉 里脊 瘦肉'},
+  {name:'猪排骨', e:'🍖', kcal:278, p:16.7, c:0.7, f:23.1, cat:'肉蛋', tags:'排骨 排骨肉'},
+  {name:'培根', e:'🥓', kcal:541, p:13, c:2, f:52, cat:'肉蛋', tags:'培根 烟熏肉'},
+  {name:'午餐肉', e:'🥫', kcal:229, p:13, c:6, f:17, cat:'肉蛋', tags:'午餐肉 火腿肠'},
+  {name:'三文鱼', e:'🍣', kcal:139, p:17.2, c:0, f:7.8, cat:'肉蛋', tags:'三文鱼 鲑鱼 刺身'},
+  {name:'鳕鱼', e:'🐟', kcal:88, p:20.4, c:0.5, f:0.5, cat:'肉蛋', tags:'鳕鱼'},
+  {name:'带鱼', e:'🐟', kcal:127, p:17.7, c:3.1, f:4.9, cat:'肉蛋', tags:'带鱼'},
+  {name:'鲈鱼', e:'🐟', kcal:105, p:18.6, c:0, f:3.4, cat:'肉蛋', tags:'鲈鱼 清蒸鱼'},
+  {name:'虾', e:'🦐', kcal:87, p:18.2, c:0.8, f:0.9, cat:'肉蛋', tags:'虾 虾仁 基围虾'},
+  {name:'豆腐', e:'🧈', kcal:82, p:8.1, c:4.2, f:3.7, cat:'肉蛋', tags:'豆腐 豆制品 嫩豆腐'},
+  /* ---------- 蔬果 ---------------- */
+  {name:'西兰花', e:'🥦', kcal:34, p:4.1, c:4.3, f:0.6, cat:'蔬果', tags:'西兰花 西蓝花 绿菜'},
+  {name:'菠菜', e:'🥬', kcal:24, p:2.6, c:2.8, f:0.3, cat:'蔬果', tags:'菠菜 绿叶菜'},
+  {name:'生菜', e:'🥬', kcal:16, p:1.4, c:3.2, f:0.3, cat:'蔬果', tags:'生菜 油麦菜'},
+  {name:'黄瓜', e:'🥒', kcal:15, p:0.8, c:2.9, f:0.2, cat:'蔬果', tags:'黄瓜 青瓜'},
+  {name:'番茄', e:'🍅', kcal:19, p:0.9, c:4, f:0.2, cat:'蔬果', tags:'番茄 西红柿'},
+  {name:'土豆', e:'🥔', kcal:77, p:2, c:17.2, f:0.1, cat:'蔬果', tags:'土豆 马铃薯'},
+  {name:'胡萝卜', e:'🥕', kcal:39, p:1, c:8.1, f:0.2, cat:'蔬果', tags:'胡萝卜 红萝卜'},
+  {name:'芹菜', e:'🥬', kcal:16, p:0.8, c:3.9, f:0.1, cat:'蔬果', tags:'芹菜 西芹'},
+  {name:'冬瓜', e:'🍈', kcal:12, p:0.4, c:2.6, f:0.2, cat:'蔬果', tags:'冬瓜'},
+  {name:'南瓜', e:'🎃', kcal:26, p:0.7, c:6.5, f:0.1, cat:'蔬果', tags:'南瓜 贝贝南瓜'},
+  {name:'洋葱', e:'🧅', kcal:40, p:1.1, c:9, f:0.2, cat:'蔬果', tags:'洋葱 圆葱'},
+  {name:'青椒', e:'🫑', kcal:22, p:1, c:5.4, f:0.3, cat:'蔬果', tags:'青椒 菜椒 尖椒'},
+  {name:'山药', e:'🍠', kcal:57, p:1.9, c:12.4, f:0.2, cat:'蔬果', tags:'山药 淮山'},
+  {name:'香菇', e:'🍄', kcal:26, p:2.2, c:5.2, f:0.3, cat:'蔬果', tags:'香菇 蘑菇 菌菇'},
+  {name:'木耳', e:'🍄', kcal:27, p:1.5, c:6, f:0.2, cat:'蔬果', tags:'木耳 黑木耳'},
+  {name:'苹果', e:'🍎', kcal:53, p:0.4, c:13.5, f:0.3, cat:'蔬果', tags:'苹果 水果'},
+  {name:'香蕉', e:'🍌', kcal:93, p:1.4, c:22, f:0.2, cat:'蔬果', tags:'香蕉 水果'},
+  {name:'橙子', e:'🍊', kcal:48, p:0.8, c:11.1, f:0.2, cat:'蔬果', tags:'橙子 橘子 柑橘'},
+  {name:'西瓜', e:'🍉', kcal:31, p:0.6, c:7.6, f:0.1, cat:'蔬果', tags:'西瓜 水果'},
+  {name:'葡萄', e:'🍇', kcal:45, p:0.6, c:10.3, f:0.2, cat:'蔬果', tags:'葡萄 提子'},
+  {name:'草莓', e:'🍓', kcal:32, p:0.7, c:7.1, f:0.3, cat:'蔬果', tags:'草莓 水果'},
+  {name:'蓝莓', e:'🫐', kcal:57, p:0.7, c:14.5, f:0.3, cat:'蔬果', tags:'蓝莓'},
+  {name:'火龙果', e:'🐉', kcal:55, p:1.1, c:13.3, f:0.2, cat:'蔬果', tags:'火龙果'},
+  {name:'牛油果', e:'🥑', kcal:171, p:2, c:7.4, f:15.3, cat:'蔬果', tags:'牛油果 鳄梨'},
+  {name:'蔬菜沙拉', e:'🥗', kcal:45, p:1.8, c:5.6, f:2, cat:'蔬果', tags:'沙拉 蔬菜沙拉 轻食'},
+  {name:'榴莲', e:'🥥', kcal:150, p:2.6, c:28.3, f:3.3, cat:'蔬果', tags:'榴莲 水果'},
+  {name:'芒果', e:'🥭', kcal:60, p:0.8, c:15, f:0.4, cat:'蔬果', tags:'芒果 水果'},
+  {name:'荔枝', e:'🍒', kcal:71, p:0.9, c:16.5, f:0.2, cat:'蔬果', tags:'荔枝 水果'},
+  {name:'猕猴桃', e:'🥝', kcal:61, p:1.1, c:14.7, f:0.5, cat:'蔬果', tags:'猕猴桃 奇异果'},
+  {name:'柚子', e:'🍊', kcal:42, p:0.8, c:9.5, f:0.2, cat:'蔬果', tags:'柚子 西柚 葡萄柚'},
+  {name:'哈密瓜', e:'🍈', kcal:34, p:0.5, c:7.9, f:0.1, cat:'蔬果', tags:'哈密瓜 甜瓜 蜜瓜'},
+  {name:'桃子', e:'🍑', kcal:48, p:0.9, c:12.2, f:0.1, cat:'蔬果', tags:'桃子 水蜜桃 油桃'},
+  {name:'梨', e:'🍐', kcal:51, p:0.3, c:13.3, f:0.2, cat:'蔬果', tags:'梨 雪梨 香梨'},
+  {name:'樱桃', e:'🍒', kcal:46, p:1.1, c:10.2, f:0.2, cat:'蔬果', tags:'樱桃 车厘子'},
+  {name:'菠萝', e:'🍍', kcal:44, p:0.5, c:10.8, f:0.1, cat:'蔬果', tags:'菠萝 凤梨'},
+  /* ---------- 饮品 ---------------- */
+  {name:'牛奶', e:'🥛', kcal:65, p:3.3, c:5, f:3.6, cat:'饮品', tags:'牛奶 纯牛奶'},
+  {name:'无糖酸奶', e:'🥛', kcal:72, p:4.5, c:6.2, f:3.2, cat:'饮品', tags:'酸奶 无糖酸奶 希腊酸奶'},
+  {name:'风味酸奶', e:'🥛', kcal:100, p:2.7, c:11, f:3.5, cat:'饮品', tags:'风味酸奶 果味酸奶'},
+  {name:'无糖豆浆', e:'🥛', kcal:31, p:3, c:1.2, f:1.6, cat:'饮品', tags:'豆浆 无糖豆浆'},
+  {name:'黑咖啡', e:'☕', kcal:2, p:0.2, c:0.3, f:0, cat:'饮品', tags:'咖啡 黑咖啡 美式'},
+  {name:'拿铁', e:'☕', kcal:54, p:3, c:5.5, f:2, cat:'饮品', tags:'拿铁 奶咖'},
+  {name:'可乐', e:'🥤', kcal:45, p:0, c:11.2, f:0, cat:'饮品', tags:'可乐 汽水 碳酸饮料 雪碧'},
+  {name:'珍珠奶茶', e:'🧋', kcal:90, p:0.8, c:15, f:3, cat:'饮品', tags:'奶茶 珍珠奶茶 波霸'},
+  {name:'橙汁', e:'🍹', kcal:45, p:0.7, c:10.4, f:0.2, cat:'饮品', tags:'橙汁 果汁'},
+  {name:'椰汁', e:'🥥', kcal:51, p:0.6, c:6.1, f:2.4, cat:'饮品', tags:'椰汁 椰子汁'},
+  {name:'啤酒', e:'🍺', kcal:43, p:0.5, c:4.6, f:0, cat:'饮品', tags:'啤酒 酒精'},
+  /* ---------- 中餐 ---------------- */
+  {name:'青椒炒肉', e:'🫑', kcal:135, p:9.5, c:4.5, f:9, cat:'中餐', tags:'青椒炒肉 辣椒炒肉 小炒肉'},
+  {name:'番茄炒蛋', e:'🍳', kcal:95, p:5.5, c:5, f:6, cat:'中餐', tags:'番茄炒蛋 西红柿炒蛋 西红柿炒鸡蛋'},
+  {name:'宫保鸡丁', e:'🍗', kcal:150, p:11, c:9, f:8, cat:'中餐', tags:'宫保鸡丁 宫爆鸡丁'},
+  {name:'麻婆豆腐', e:'🌶️', kcal:105, p:6.5, c:4, f:7, cat:'中餐', tags:'麻婆豆腐 麻辣豆腐'},
+  {name:'鱼香肉丝', e:'🥘', kcal:125, p:8, c:9, f:6.5, cat:'中餐', tags:'鱼香肉丝'},
+  {name:'回锅肉', e:'🥓', kcal:260, p:9, c:5, f:23, cat:'中餐', tags:'回锅肉'},
+  {name:'红烧肉', e:'🍖', kcal:470, p:9, c:4, f:45, cat:'中餐', tags:'红烧肉 东坡肉'},
+  {name:'糖醋里脊', e:'🍖', kcal:230, p:10, c:22, f:11, cat:'中餐', tags:'糖醋里脊 咕咾肉 锅包肉'},
+  {name:'红烧排骨', e:'🍖', kcal:250, p:14, c:7, f:18, cat:'中餐', tags:'红烧排骨 酱排骨'},
+  {name:'可乐鸡翅', e:'🍗', kcal:185, p:15, c:8, f:10, cat:'中餐', tags:'可乐鸡翅'},
+  {name:'白切鸡', e:'🍗', kcal:170, p:20, c:1, f:9.5, cat:'中餐', tags:'白切鸡 白斩鸡'},
+  {name:'咖喱鸡', e:'🍛', kcal:135, p:10, c:7, f:7, cat:'中餐', tags:'咖喱鸡 咖喱饭'},
+  {name:'清蒸鲈鱼', e:'🐟', kcal:105, p:16, c:0.5, f:4, cat:'中餐', tags:'清蒸鲈鱼 清蒸鱼'},
+  {name:'酸菜鱼', e:'🐟', kcal:95, p:10, c:3, f:5, cat:'中餐', tags:'酸菜鱼'},
+  {name:'水煮鱼', e:'🐟', kcal:120, p:11, c:3, f:7, cat:'中餐', tags:'水煮鱼 沸腾鱼'},
+  {name:'小炒黄牛肉', e:'🥩', kcal:145, p:15, c:3, f:8, cat:'中餐', tags:'小炒黄牛肉 小炒牛肉'},
+  {name:'酸辣土豆丝', e:'🥔', kcal:90, p:1.8, c:13, f:3.5, cat:'中餐', tags:'酸辣土豆丝 炒土豆丝'},
+  {name:'蒜蓉西兰花', e:'🥦', kcal:55, p:3.5, c:5, f:2.5, cat:'中餐', tags:'蒜蓉西兰花 炒西兰花'},
+  {name:'清炒时蔬', e:'🥬', kcal:50, p:2, c:5, f:2.5, cat:'中餐', tags:'清炒时蔬 炒青菜 炒油麦菜 蒜蓉青菜'},
+  {name:'干锅花菜', e:'🥦', kcal:85, p:2.5, c:7, f:5.5, cat:'中餐', tags:'干锅花菜 干锅菜花'},
+  {name:'地三鲜', e:'🍆', kcal:120, p:2.5, c:9, f:8, cat:'中餐', tags:'地三鲜'},
+  {name:'红烧茄子', e:'🍆', kcal:105, p:1.8, c:8, f:7.5, cat:'中餐', tags:'红烧茄子 烧茄子'},
+  {name:'毛血旺', e:'🌶️', kcal:130, p:8, c:5, f:9, cat:'中餐', tags:'毛血旺'},
+  {name:'蛋炒饭', e:'🍳', kcal:170, p:5, c:24, f:8.5, cat:'中餐', tags:'蛋炒饭 炒饭'},
+  {name:'扬州炒饭', e:'🍚', kcal:175, p:6, c:24, f:6.5, cat:'中餐', tags:'扬州炒饭'},
+  {name:'炒面', e:'🍜', kcal:180, p:5.5, c:26, f:6, cat:'中餐', tags:'炒面 炒米粉'},
+  /* ---------- 快餐 ---------------- */
+  {name:'汉堡', e:'🍔', kcal:256, p:13, c:28, f:10, cat:'快餐', tags:'汉堡 牛肉堡 肯德基 麦当劳'},
+  {name:'薯条', e:'🍟', kcal:298, p:3.8, c:35, f:15, cat:'快餐', tags:'薯条 炸薯条'},
+  {name:'披萨', e:'🍕', kcal:266, p:11, c:33, f:10, cat:'快餐', tags:'披萨 比萨'},
+  {name:'炸鸡', e:'🍗', kcal:279, p:18, c:9, f:19, cat:'快餐', tags:'炸鸡 炸鸡翅 炸鸡腿'},
+  {name:'三明治', e:'🥪', kcal:240, p:9, c:26, f:11, cat:'快餐', tags:'三明治'},
+  {name:'寿司', e:'🍣', kcal:145, p:5.5, c:28, f:1.5, cat:'快餐', tags:'寿司 紫菜包饭'},
+  {name:'火锅', e:'🍲', kcal:150, p:10, c:6, f:9, cat:'快餐', tags:'火锅 涮锅 麻辣锅 海底捞'},
+  {name:'麻辣烫', e:'🌶️', kcal:95, p:5, c:8, f:5, cat:'快餐', tags:'麻辣烫 冒菜'},
+  {name:'关东煮', e:'🍢', kcal:80, p:5, c:6, f:3, cat:'快餐', tags:'关东煮'},
+  {name:'螺蛳粉', e:'🍜', kcal:140, p:5.5, c:22, f:3.5, cat:'快餐', tags:'螺蛳粉 螺狮粉'},
+  {name:'兰州拉面', e:'🍜', kcal:120, p:5.5, c:20, f:2, cat:'快餐', tags:'兰州拉面 牛肉面 牛肉拉面'},
+  {name:'黄焖鸡米饭', e:'🍛', kcal:165, p:9, c:16, f:7, cat:'快餐', tags:'黄焖鸡 黄焖鸡米饭'},
+  {name:'方便面', e:'🍜', kcal:473, p:9.5, c:61, f:21, cat:'快餐', tags:'方便面 泡面 拉面'},
+  {name:'蛋挞', e:'🥧', kcal:375, p:6, c:40, f:22, cat:'快餐', tags:'蛋挞'},
+  /* ---------- 西餐 ---------------- */
+  {name:'牛排', e:'🥩', kcal:180, p:26, c:0, f:8, cat:'西餐', tags:'牛排 西冷 菲力 肉眼 煎牛排 beef steak'},
+  {name:'意大利面', e:'🍝', kcal:158, p:5.8, c:31, f:0.9, cat:'西餐', tags:'意大利面 意面 意粉 spaghetti 番茄意面'},
+  {name:'奶油培根意面', e:'🍝', kcal:200, p:7, c:26, f:8, cat:'西餐', tags:'奶油意面 培根意面 卡邦尼 carbonara'},
+  {name:'千层面', e:'🍝', kcal:135, p:7, c:13, f:6, cat:'西餐', tags:'千层面 焗面 lasagna 肉酱千层面'},
+  {name:'凯撒沙拉', e:'🥗', kcal:120, p:5, c:6, f:9, cat:'西餐', tags:'凯撒沙拉 鸡肉沙拉 caesar'},
+  {name:'奶油蘑菇汤', e:'🍲', kcal:90, p:2, c:7, f:6, cat:'西餐', tags:'奶油蘑菇汤 蘑菇汤 浓汤'},
+  {name:'罗宋汤', e:'🍲', kcal:45, p:2.5, c:6, f:1.5, cat:'西餐', tags:'罗宋汤 红菜汤 borscht'},
+  {name:'芝士', e:'🧀', kcal:350, p:22, c:2.5, f:28, cat:'西餐', tags:'芝士 奶酪 奶酪片 cheese 马苏里拉 切达'},
+  {name:'黄油', e:'🧈', kcal:717, p:0.9, c:0.1, f:81, cat:'西餐', tags:'黄油 牛油 butter'},
+  {name:'墨西哥卷饼', e:'🌮', kcal:210, p:9, c:24, f:9, cat:'西餐', tags:'墨西哥卷饼 taco 塔可 鸡肉卷 burrito'},
+  {name:'烤鸡', e:'🍗', kcal:190, p:22, c:0, f:11, cat:'西餐', tags:'烤鸡 烤全鸡 香草烤鸡 roast chicken'},
+  {name:'土豆泥', e:'🥔', kcal:110, p:1.8, c:16, f:4.2, cat:'西餐', tags:'土豆泥 薯泥 mashed potato'},
+  {name:'煎三文鱼', e:'🐟', kcal:206, p:22, c:0, f:13, cat:'西餐', tags:'煎三文鱼 香煎三文鱼 烤三文鱼'},
+  {name:'惠灵顿牛排', e:'🥩', kcal:320, p:18, c:16, f:20, cat:'西餐', tags:'惠灵顿牛排 酥皮牛排 wellington'},
+  {name:'法式吐司', e:'🍞', kcal:260, p:8, c:32, f:11, cat:'西餐', tags:'法式吐司 西多士 french toast'},
+  {name:'提拉米苏', e:'🍰', kcal:300, p:5, c:30, f:18, cat:'西餐', tags:'提拉米苏 tiramisu 意式甜点'},
+  {name:'芦笋', e:'🥦', kcal:20, p:2.2, c:3.9, f:0.1, cat:'西餐', tags:'芦笋 煎芦笋 配菜'},
+  /* ---------- 烧烤 ---------------- */
+  {name:'羊肉串', e:'🍢', kcal:210, p:18, c:2, f:14, cat:'烧烤', tags:'羊肉串 烤羊肉 烤串 肉串'},
+  {name:'牛肉串', e:'🍢', kcal:170, p:20, c:2, f:9, cat:'烧烤', tags:'牛肉串 烤牛肉 烤串'},
+  {name:'烤鸡翅', e:'🍗', kcal:230, p:19, c:3, f:15, cat:'烧烤', tags:'烤鸡翅 奥尔良烤翅 烤翅'},
+  {name:'烤五花肉', e:'🥓', kcal:420, p:12, c:3, f:40, cat:'烧烤', tags:'烤五花肉 烤猪肉 韩式烤肉'},
+  {name:'烤韭菜', e:'🥬', kcal:60, p:2.5, c:6, f:3, cat:'烧烤', tags:'烤韭菜'},
+  {name:'烤茄子', e:'🍆', kcal:80, p:1.5, c:8, f:5, cat:'烧烤', tags:'烤茄子 蒜蓉烤茄子'},
+  {name:'烤玉米', e:'🌽', kcal:130, p:4, c:24, f:2.5, cat:'烧烤', tags:'烤玉米'},
+  {name:'烤生蚝', e:'🦪', kcal:70, p:8, c:4, f:2, cat:'烧烤', tags:'烤生蚝 蒜蓉生蚝 牡蛎'},
+  {name:'烤鱿鱼', e:'🦑', kcal:110, p:17, c:3, f:2.5, cat:'烧烤', tags:'烤鱿鱼 铁板鱿鱼 鱿鱼串'},
+  {name:'烤鱼', e:'🐟', kcal:130, p:18, c:2, f:5.5, cat:'烧烤', tags:'烤鱼 万州烤鱼 炭火烤鱼'},
+  {name:'烤面筋', e:'🍢', kcal:200, p:14, c:20, f:7, cat:'烧烤', tags:'烤面筋 面筋串'},
+  {name:'烤馒头片', e:'🍞', kcal:280, p:8, c:52, f:4, cat:'烧烤', tags:'烤馒头片 烤馍片'},
+  {name:'烤金针菇', e:'🍄', kcal:55, p:2.8, c:6, f:2, cat:'烧烤', tags:'烤金针菇 金针菇'},
+  {name:'烤肠(烧烤摊)', e:'🌭', kcal:310, p:12, c:6, f:26, cat:'烧烤', tags:'烤肠 烤热狗 烤香肠'},
+  /* ---------- 小吃 ---------------- */
+  {name:'手抓饼', e:'🫓', kcal:340, p:6.5, c:38, f:18, cat:'小吃', tags:'手抓饼 台湾手抓饼'},
+  {name:'煎饼果子', e:'🥞', kcal:260, p:7.5, c:32, f:11, cat:'小吃', tags:'煎饼果子 煎饼'},
+  {name:'烤冷面', e:'🍝', kcal:235, p:6, c:35, f:10, cat:'小吃', tags:'烤冷面'},
+  {name:'鸡蛋灌饼', e:'🥞', kcal:280, p:8, c:32, f:13, cat:'小吃', tags:'鸡蛋灌饼 灌饼'},
+  {name:'酱香饼', e:'🫓', kcal:300, p:6, c:40, f:13, cat:'小吃', tags:'酱香饼'},
+  {name:'肉夹馍', e:'🥙', kcal:240, p:10, c:30, f:9, cat:'小吃', tags:'肉夹馍 腊汁肉夹馍'},
+  {name:'小笼包', e:'🥟', kcal:230, p:9, c:28, f:11, cat:'小吃', tags:'小笼包 灌汤包'},
+  {name:'生煎包', e:'🥟', kcal:260, p:8, c:30, f:12, cat:'小吃', tags:'生煎包 生煎'},
+  {name:'烧麦', e:'🥟', kcal:220, p:6, c:32, f:8, cat:'小吃', tags:'烧麦 烧卖'},
+  {name:'锅贴', e:'🥟', kcal:240, p:8, c:28, f:11, cat:'小吃', tags:'锅贴 煎饺'},
+  {name:'馄饨', e:'🥣', kcal:150, p:6, c:22, f:4.5, cat:'小吃', tags:'馄饨 云吞 抄手'},
+  {name:'韭菜盒子', e:'🥟', kcal:230, p:6, c:28, f:10, cat:'小吃', tags:'韭菜盒子'},
+  {name:'春卷', e:'🌯', kcal:250, p:5, c:30, f:12, cat:'小吃', tags:'春卷'},
+  {name:'大鸡排', e:'🍗', kcal:250, p:16, c:12, f:17, cat:'小吃', tags:'鸡排 大鸡排 炸鸡排'},
+  {name:'烤肠', e:'🌭', kcal:300, p:12, c:8, f:24, cat:'小吃', tags:'烤肠 香肠 热狗'},
+  {name:'臭豆腐', e:'🧆', kcal:180, p:8, c:10, f:12, cat:'小吃', tags:'臭豆腐'},
+  {name:'糖炒栗子', e:'🌰', kcal:214, p:4.8, c:46, f:1.5, cat:'小吃', tags:'糖炒栗子 栗子 板栗'},
+  {name:'月饼', e:'🥮', kcal:430, p:6, c:60, f:19, cat:'小吃', tags:'月饼 莲蓉月饼 五仁月饼'},
+  /* ---------- 零食 ---------------- */
+  {name:'坚果混合', e:'🥜', kcal:607, p:18, c:18, f:54, cat:'零食', tags:'坚果 腰果 杏仁 核桃 每日坚果'},
+  {name:'黑巧克力', e:'🍫', kcal:546, p:5, c:46, f:38, cat:'零食', tags:'巧克力 黑巧'},
+  {name:'牛奶巧克力', e:'🍫', kcal:540, p:8, c:53, f:32, cat:'零食', tags:'巧克力 白巧 牛奶巧'},
+  {name:'薯片', e:'🥔', kcal:548, p:5.5, c:50, f:36, cat:'零食', tags:'薯片 乐事 原味 番茄'},
+  {name:'锅巴', e:'🍘', kcal:480, p:7, c:58, f:24, cat:'零食', tags:'锅巴 小米锅巴'},
+  {name:'雪饼仙贝', e:'🍘', kcal:450, p:6, c:65, f:18, cat:'零食', tags:'雪饼 仙贝 米饼 旺旺'},
+  {name:'饼干', e:'🍪', kcal:435, p:7, c:64, f:17, cat:'零食', tags:'饼干 曲奇 奥利奥'},
+  {name:'奶油蛋糕', e:'🍰', kcal:379, p:6, c:55, f:15, cat:'零食', tags:'蛋糕 奶油蛋糕 生日蛋糕'},
+  {name:'冰淇淋', e:'🍦', kcal:190, p:3.5, c:24, f:9, cat:'零食', tags:'冰淇淋 雪糕 冰激凌'},
+  {name:'辣条', e:'🌶️', kcal:460, p:9, c:40, f:30, cat:'零食', tags:'辣条 卫龙 魔芋爽'},
+  {name:'海苔', e:'🍘', kcal:270, p:25, c:25, f:8, cat:'零食', tags:'海苔 紫菜'},
+  {name:'干脆面', e:'🍜', kcal:520, p:10, c:62, f:26, cat:'零食', tags:'干脆面 干脆面 小浣熊'},
+  {name:'蛋黄派', e:'🥮', kcal:420, p:5, c:55, f:20, cat:'零食', tags:'蛋黄派 达利园 派'},
+  {name:'话梅', e:'🍇', kcal:320, p:3, c:55, f:3, cat:'零食', tags:'话梅 乌梅 梅干'},
+  {name:'瓜子', e:'🌻', kcal:615, p:24, c:16, f:49, cat:'零食', tags:'瓜子 葵花籽 南瓜子'},
+  {name:'松子', e:'🌰', kcal:640, p:14, c:13, f:62, cat:'零食', tags:'松子 松仁'},
+  {name:'棉花糖', e:'☁️', kcal:318, p:3.5, c:81, f:0, cat:'零食', tags:'棉花糖 软糖'},
+  {name:'棒棒糖', e:'🍭', kcal:400, p:0, c:100, f:0, cat:'零食', tags:'棒棒糖 水果糖'},
+  {name:'果冻', e:'🍮', kcal:80, p:1, c:20, f:0, cat:'零食', tags:'果冻 吸吸冻 喜之郎'},
+  {name:'酸奶', e:'🥛', kcal:72, p:2.5, c:9.3, f:2.7, cat:'零食', tags:'酸奶 原味酸奶 益生菌'},
+  {name:'蛋白粉', e:'🥤', kcal:380, p:75, c:8, f:5, cat:'零食', tags:'蛋白粉 乳清 补剂'},
+];
+const CATS = ['全部','主食','肉蛋','蔬果','饮品','中餐','西餐','快餐','烧烤','小吃','零食'];
+let curCat = '全部';
+
+/* ================= 工具 ================= */
+const $ = id => document.getElementById(id);
+const store = {
+  get:(k,d)=>{try{return JSON.parse(localStorage.getItem(k)) ?? d}catch(e){return d}},
+  set:(k,v)=>localStorage.setItem(k,JSON.stringify(v))
+};
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); }
+
+/* ================= 导航 ================= */
+function go(p){
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
+  $('page-'+p).classList.add('active');
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.p===p));
+  if(p==='home') renderHome();
+  if(p==='scan' && !$('scanResult').innerHTML){ $('scanHome').style.display='block'; }
+}
+
+/* ================= 首页 ================= */
+function getProfile(){ return store.get('profile', {target:1800}); }
+function getLog(){ return store.get('log_'+new Date().toDateString(), []); }
+
+function renderHome(){
+  const log = getLog(), target = getProfile().target;
+  const kcal = log.reduce((s,x)=>s+x.kcal,0);
+  const p = log.reduce((s,x)=>s+x.p,0), c = log.reduce((s,x)=>s+x.c,0), f = log.reduce((s,x)=>s+x.f,0);
+  $('todayKcal').textContent = Math.round(kcal);
+  $('targetKcalHome').textContent = target;
+  $('ringFg').style.strokeDashoffset = 301.6 * (1 - Math.min(kcal/target,1));
+  $('ringFg').style.stroke = kcal>target ? '#FF6B6B' : '#EE8B3A';
+  $('mP').textContent = p.toFixed(0)+'g'; $('barP').style.width = Math.min(p/120*100,100)+'%';
+  $('mC').textContent = c.toFixed(0)+'g'; $('barC').style.width = Math.min(c/250*100,100)+'%';
+  $('mF').textContent = f.toFixed(0)+'g'; $('barF').style.width = Math.min(f/65*100,100)+'%';
+  const card = $('histCard');
+  if(!log.length){ card.innerHTML = '<div class="empty">还没有记录哦～布布一二等你拍第一道美食 🐻🐼<br><span style="color:var(--sub);font-size:12px">点上方「＋ 手动添加」或去拍照识别</span></div>'; $('dailyAdvice').style.display='none'; return; }
+  card.innerHTML = log.map((x,i)=>`
+    <div class="hist-item"><span class="e">${x.e||'🍴'}</span>
+      <div class="info"><div style="font-weight:600">${x.name}</div>
+      <div class="muted">${x.grams}g · ${x.time}</div></div>
+      <div class="kcal" style="color:var(--orange)">${Math.round(x.kcal)}</div>
+      <button onclick="removeLog(${i})" style="border:none;background:transparent;color:var(--sub);cursor:pointer;font-size:18px;margin-left:4px">×</button></div>`).join('') + `
+    <div class="hist-item" style="border:none;background:#FFF8EF;margin-top:8px;border-radius:12px;padding:12px">
+      <div class="info"><div style="font-weight:700;color:var(--ink)">今日合计</div>
+      <div class="muted">蛋白 ${p.toFixed(0)}g · 碳水 ${c.toFixed(0)}g · 脂肪 ${f.toFixed(0)}g</div></div>
+      <div class="kcal" style="color:${kcal>target?'#FF6B6B':'#EE8B3A'}">${Math.round(kcal)} / ${target}</div>
+    </div>`;
+  const adv = $('dailyAdvice');
+  adv.style.display = 'block';
+  const ratio = kcal/target;
+  let msg = '', face = '';
+  if(ratio >= 1.2){ msg = `一二瞪圆了眼睛：今天超标 ${Math.round((ratio-1)*100)}% 啦！布布建议晚上别加餐了，出去走 40 分钟帮助消耗～明天轻断食一顿就能拉回来 💪`; face = '🙈'; adv.style.background='#FFEBEB'; }
+  else if(ratio >= 1){ msg = `刚好达标！布布点点头：控制住总量就很棒～可以加 30g 蛋白，比如一盒牛奶或一个鸡蛋，让营养更平衡 🥛`; face = '😊'; adv.style.background='#FFF4E3'; }
+  else if(ratio >= 0.7){ msg = `一二比个心：今天吃得刚刚好，继续保持～记得多喝水，别等口渴了才喝 💧`; face = '✨'; adv.style.background='#E8F7E7'; }
+  else if(ratio >= 0.4){ msg = `布布有点担心：吃得太少啦，基础代谢都不够了……饿坏身体可不好，加点主食或蛋白质吧 🥺`; face = '😟'; adv.style.background='#FFF4E3'; }
+  else { msg = `一二连忙摆手：吃太少啦！全天才 ${Math.round(kcal)} kcal，容易掉肌肉还暴食反弹～快去吃一顿均衡的！🍱`; face = '😱'; adv.style.background='#FFEBEB'; }
+  adv.innerHTML = `<div style="display:flex;align-items:flex-start;gap:10px"><span style="font-size:28px">${face}</span><div style="flex:1;line-height:1.8;color:var(--ink);font-size:14px">${msg}</div></div>`;
+}
+function removeLog(i){
+  const log = getLog(); log.splice(i,1);
+  store.set('log_'+new Date().toDateString(), log);
+  renderHome(); toast('已删除');
+}
+function manualAdd(){
+  const foods = FOODS.slice(0,30).map(f=>`<option value="${f.name}">${f.e} ${f.name}</option>`).join('');
+  const h = `<div class="modal show" id="addFoodModal"><div class="sheet" style="max-width:360px;margin:0 auto">
+    <span class="close" onclick="this.closest('.modal').classList.remove('show')">×</span>
+    <div class="sec-title" style="margin-top:0">＋ 手动添加食物</div>
+    <div class="form-item" style="margin-bottom:10px"><label>选择食物</label>
+      <input list="foodListOpt" id="addFoodName" placeholder="输入食物名搜索" oninput="filterAddFood()"></div>
+    <datalist id="foodListOpt">${foods}</datalist>
+    <div id="addFoodList" style="max-height:160px;overflow-y:auto;margin-bottom:10px"></div>
+    <div class="form-item"><label>份量 (g)</label>
+      <input type="number" id="addFoodG" value="100" min="10"></div>
+    <button class="btn btn-p" style="margin-top:12px" onclick="doManualAdd()">确认添加</button>
+  </div></div>`;
+  document.body.insertAdjacentHTML('beforeend', h);
+  filterAddFood();
+}
+function filterAddFood(){
+  const q = ($('addFoodName')||{}).value||'';
+  const foods = FOODS.filter(f=>f.name.includes(q)||f.tags.includes(q)).slice(0,20);
+  $('addFoodList').innerHTML = foods.map(f=>`<div onclick="$('addFoodName').value='${f.name}'">${f.e} ${f.name} <span style="color:var(--sub);font-size:12px">${f.kcal}kcal/100g</span></div>`).join('');
+}
+function doManualAdd(){
+  const name = $('addFoodName').value.trim();
+  const grams = +$('addFoodG').value;
+  const f = FOODS.find(x=>x.name===name);
+  if(!f){ toast('没找到这个食物，换个名试试'); return; }
+  if(!grams||grams<=0){ toast('请输入份量'); return; }
+  const log = getLog(), r = grams/100;
+  log.push({name:f.name, e:f.e, grams, kcal:f.kcal*r, p:f.p*r, c:f.c*r, f:f.f*r, time:new Date().toTimeString().slice(0,5)});
+  store.set('log_'+new Date().toDateString(), log);
+  $('addFoodModal').remove(); renderHome();
+  toast(`已添加 ${f.name} ${grams}g ✓`);
+}
+
+/* ================= 食物库 & 热量评定 ================= */
+function rateFood(kcal){
+  if(kcal < 60)  return {label:'低热量·推荐', color:'#8FC06A', score:92};
+  if(kcal < 150) return {label:'中低热量·放心吃', color:'#B8CC6E', score:78};
+  if(kcal < 250) return {label:'中等热量·适量', color:'#FFC53D', score:60};
+  if(kcal < 350) return {label:'偏高热量·控制份量', color:'#FF7A45', score:40};
+  return {label:'高热量·偶尔解馋', color:'#FF6B6B', score:18};
+}
+
+function renderCats(){
+  $('catChips').innerHTML = CATS.map(c=>
+    `<span class="chip ${c===curCat?'on':''}" onclick="curCat='${c}';renderCats();renderFoods()">${c}</span>`).join('');
+}
+function renderFoods(){
+  const q = $('searchInput').value.trim();
+  const list = FOODS.filter(f =>
+    (curCat==='全部' || f.cat===curCat) &&
+    (!q || f.name.includes(q) || f.tags.includes(q)));
+  $('foodList').innerHTML = list.length ? list.map(f=>{
+    const r = rateFood(f.kcal);
+    return `<div class="food-item" onclick="showFood('${f.name}')">
+      <span class="e">${f.e}</span>
+      <div class="info"><div class="nm">${f.name}</div>
+      <div class="muted"><span style="color:${r.color}">●</span> ${r.label}</div></div>
+      <div class="kcal">${f.kcal} kcal<small class="muted">/100g</small></div></div>`;
+  }).join('') : '<div class="empty">没有找到相关食物，换个关键词试试</div>';
+}
+
+function showFood(name, grams){
+  const f = FOODS.find(x=>x.name===name); if(!f) return;
+  grams = grams || 100;
+  const r = rateFood(f.kcal), ratio = grams/100;
+  $('foodModalBody').innerHTML = `
+    <span class="close" onclick="$('foodModal').classList.remove('show')">✕</span>
+    <div class="result-food"><span class="e">${f.e}</span>
+      <div><div style="font-size:19px;font-weight:800">${f.name}</div>
+      <div class="muted">${f.cat} · 每100g ${f.kcal} kcal</div></div></div>
+    <div style="margin-top:16px">
+      <div style="display:flex;justify-content:space-between;font-size:13px">
+        <b>健康评分 ${r.score}/100</b><span class="rate-badge" style="background:${r.color}">${r.label}</span></div>
+      <div class="score-bar"><i style="width:${r.score}%;background:${r.color}"></i></div>
+    </div>
+    <div style="margin:14px 0 6px">
+      <label class="muted">食用份量：<b id="gVal" style="color:var(--ink)">${grams}</b> g</label>
+      <input type="range" min="20" max="600" step="10" value="${grams}" style="width:100%;accent-color:var(--green)"
+        oninput="$('gVal').textContent=this.value;updateModalKcal('${f.name}',this.value)">
+    </div>
+    <div class="kcal-big" id="modalKcal">${Math.round(f.kcal*ratio)} kcal</div>
+    <div class="nutri-grid">
+      <div class="nutri"><b id="nP">${(f.p*ratio).toFixed(1)}g</b><span>蛋白质</span></div>
+      <div class="nutri"><b id="nC">${(f.c*ratio).toFixed(1)}g</b><span>碳水</span></div>
+      <div class="nutri"><b id="nF">${(f.f*ratio).toFixed(1)}g</b><span>脂肪</span></div>
+    </div>
+    <div class="muted" style="margin-top:12px;line-height:1.8">${foodTip(f)}</div>
+    <button class="btn btn-p" style="margin-top:14px"
+      onclick="addLog('${f.name}',+document.querySelector('#foodModal input').value)">＋ 记录到今日摄入</button>`;
+  $('foodModal').classList.add('show');
+}
+function updateModalKcal(name, g){
+  const f = FOODS.find(x=>x.name===name), r = g/100;
+  $('modalKcal').textContent = Math.round(f.kcal*r)+' kcal';
+  $('nP').textContent = (f.p*r).toFixed(1)+'g';
+  $('nC').textContent = (f.c*r).toFixed(1)+'g';
+  $('nF').textContent = (f.f*r).toFixed(1)+'g';
+}
+const AI_FACES = ['[BUBU]','[YIYI]'];
+function face(){ return AI_FACES[Math.floor(Math.random()*2)]; }
+function foodTip(f){
+  const r = rateFood(f.kcal);
+  if(f.p >= 15) return `${face()} 一二眼睛亮了：高蛋白哎！增肌的小伙伴快记下，配点蔬菜更棒～`;
+  if(f.f >= 20) return `${face()} 布布捂住了眼睛：脂肪有点高哦，减脂期每次别超过 ${f.kcal>400?30:80}g，馋了少吃一口～`;
+  if(f.c >= 25 && f.kcal < 130) return `${face()} 一二竖起大拇指：优质慢碳！当主食吃，饱饱的还不怕胖～`;
+  if(r.score >= 80) return `${face()} 布布鼓掌：低热量高纤维，减脂期放心炫，记得少油少盐～`;
+  if(r.score <= 40) return `${face()} 一二小声说：这个是热量炸弹……减肥期咱浅尝一口就好啦？`;
+  return `${face()} 布布点点头：营养挺均衡的，搭配蛋白质和蔬菜，控制好总量就行～`;
+}
+function addLog(name, grams){
+  const f = FOODS.find(x=>x.name===name), r = grams/100;
+  const log = getLog();
+  log.push({name:f.name, e:f.e, grams, kcal:f.kcal*r, p:f.p*r, c:f.c*r, f:f.f*r,
+    time:new Date().toTimeString().slice(0,5)});
+  store.set('log_'+new Date().toDateString(), log);
+  $('foodModal').classList.remove('show');
+  toast(`已记录 ${f.name} ${grams}g ✓`);
+}
+
+/* ================= 拍照识别（本地模拟AI） ================= */
+let stream = null;
+async function openCamera(){
+  $('cameraModal').classList.add('show');
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    $('camVideo').srcObject = stream;
+  }catch(e){
+    toast('无法开启相机，请改用相册上传');
+    closeCamera();
+    $('fileAlbum').click();
+  }
+}
+function closeCamera(){
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  $('cameraModal').classList.remove('show');
+}
+function snap(){
+  const v = $('camVideo'), cv = $('cv');
+  cv.width = v.videoWidth || 640; cv.height = v.videoHeight || 480;
+  cv.getContext('2d').drawImage(v,0,0);
+  const url = cv.toDataURL('image/jpeg',.85);
+  closeCamera();
+  analyzeImage(url);
+}
+function onFile(ev){
+  const file = ev.target.files[0]; if(!file) return;
+  const rd = new FileReader();
+  rd.onload = e => analyzeImage(e.target.result);
+  rd.readAsDataURL(file);
+  ev.target.value = '';
+}
+
+/* 图像色彩启发式：分析平均色 → 推断食物类别 */
+function guessByColor(img, cb){
+  const cv = $('cv'), ctx = cv.getContext('2d');
+  cv.width = 64; cv.height = 64;
+  ctx.drawImage(img, 0, 0, 64, 64);
+  const d = ctx.getImageData(0,0,64,64).data;
+  let r=0,g=0,b=0,n=64*64;
+  for(let i=0;i<d.length;i+=4){ r+=d[i]; g+=d[i+1]; b+=d[i+2]; }
+  r/=n; g/=n; b/=n;
+  const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
+  let pool;
+  if(mx-mn < 28){ pool = FOODS.filter(f=>['米饭','燕麦片','豆腐','鸡蛋','饺子','牛奶'].includes(f.name)); } // 浅色/米白
+  else if(g > r && g > b){ pool = FOODS.filter(f=>f.cat==='蔬果' && f.kcal<60); } // 绿色 → 蔬菜
+  else if(r > g*1.25 && r > b*1.3){ pool = FOODS.filter(f=>['红烧肉','牛肉(瘦)','番茄','三文鱼','火锅'].includes(f.name)); } // 红 → 肉类
+  else if(r>140 && g>95 && b<90){ pool = FOODS.filter(f=>['炸鸡','薯条','汉堡','披萨','红烧肉'].includes(f.name)); } // 金黄 → 油炸
+  else if(b >= r && b >= g){ pool = FOODS.filter(f=>['可乐','黑咖啡','珍珠奶茶','牛奶'].includes(f.name)); } // 深色 → 饮品
+  else { pool = FOODS; }
+  if(!pool.length) pool = FOODS;
+  const main = pool[Math.floor(Math.random()*pool.length)];
+  const others = FOODS.filter(f=>f.cat===main.cat && f.name!==main.name).slice(0,3);
+  cb(main, others);
+}
+
+function analyzeImage(url){
+  go('scan');
+  $('scanHome').style.display = 'none';
+  const img = new Image();
+  img.onload = ()=>{
+    $('scanResult').style.display = 'block';
+    $('scanResult').innerHTML = `
+      <div class="preview-wrap"><img src="${url}">
+        <div class="scan-mask"><span>🐻 布布正在闻香味识别中…</span></div>
+        <div class="scan-line"></div>
+      </div>
+      <div class="card" style="text-align:center;padding:30px">
+        <div class="typing" style="font-size:20px"><i></i><i></i><i></i></div>
+        <div class="muted" style="margin-top:10px" id="scanStep">正在分析图像特征…</div>
+      </div>`;
+    const steps = ['正在分析图像特征…','匹配食物数据库…','估算份量与热量…','生成营养评定…'];
+    let si = 0;
+    const timer = setInterval(()=>{ si++; if(si<steps.length) $('scanStep').textContent = steps[si]; }, 600);
+    setTimeout(()=>{
+      clearInterval(timer);
+      guessByColor(img, (main, others)=> showScanResult(url, main, others));
+    }, 2600);
+  };
+  img.src = url;
+}
+
+function showScanResult(url, f, others){
+  const grams = 150 + Math.floor(Math.random()*4)*50; // 模拟份量估算
+  const r = rateFood(f.kcal), ratio = grams/100;
+  const conf = (88 + Math.random()*9).toFixed(1);
+  $('scanResult').innerHTML = `
+    <div class="preview-wrap"><img src="${url}"></div>
+    <div class="card">
+      <div class="result-food"><span class="e">${f.e}</span>
+        <div style="flex:1">
+          <div style="font-size:19px;font-weight:800">${f.name}</div>
+          <div class="muted">置信度 ${conf}% · 估算 ${grams}g</div>
+        </div>
+        <span class="rate-badge" style="background:${r.color}">${r.label}</span>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:6px;margin-top:14px">
+        <span class="kcal-big">${Math.round(f.kcal*ratio)}</span><span class="muted">kcal（本份）</span>
+        <span class="muted" style="margin-left:auto">${f.kcal} kcal/100g</span>
+      </div>
+      <div style="font-size:13px;margin-top:10px"><b>健康评分 ${r.score}/100</b></div>
+      <div class="score-bar"><i style="width:${r.score}%;background:${r.color}"></i></div>
+      <div class="nutri-grid">
+        <div class="nutri"><b>${(f.p*ratio).toFixed(1)}g</b><span>蛋白质</span></div>
+        <div class="nutri"><b>${(f.c*ratio).toFixed(1)}g</b><span>碳水</span></div>
+        <div class="nutri"><b>${(f.f*ratio).toFixed(1)}g</b><span>脂肪</span></div>
+      </div>
+      <div class="muted" style="margin-top:12px;line-height:1.8">${foodTip(f)}</div>
+      ${others.length ? `<div class="muted" style="margin-top:12px">识别不对？试试这些：</div>
+      <div class="cand-list">${others.map(o=>`<span class="cand" onclick="showScanResult('${url}',FOODS.find(x=>x.name==='${o.name}'),FOODS.filter(x=>x.cat==='${o.cat}'&&x.name!=='${o.name}').slice(0,3))">${o.e} ${o.name}</span>`).join('')}</div>`:''}
+      <div style="display:flex;gap:10px;margin-top:14px">
+        <button class="btn btn-p" onclick="addLog('${f.name}',${grams});resetScan()">＋ 记录摄入</button>
+        <button class="btn btn-o" onclick="resetScan()">🔄 再拍一张</button>
+      </div>
+    </div>`;
+}
+function resetScan(){
+  $('scanResult').innerHTML=''; $('scanResult').style.display='none';
+  $('scanHome').style.display='block';
+}
+
+/* ================= 身材测算 & 计划 ================= */
+function calcPlan(){
+  const h = +$('height').value, w = +$('weight').value, age = +$('age').value;
+  const sex = +$('gender').value, act = +$('activity').value;
+  if(!h || !w || !age){ toast('请填写完整数据'); return; }
+  const bmi = w / ((h/100)**2);
+  const bf = 1.2*bmi + 0.23*age - 10.8*sex - 5.4;                    // 体脂率估算
+  const bmr = 10*w + 6.25*h - 5*age + (sex?5:-161);                  // Mifflin-St Jeor
+  const tdee = bmr * act;
+  // 目标判定
+  let goal, target, advice, train;
+  const bfHigh = sex ? bf>20 : bf>28, bfLow = sex ? bf<12 : bf<20;
+  if(bmi >= 24 || bfHigh){
+    goal = '减脂塑形 🔥'; target = Math.round(tdee - 400);
+    advice = `你的 BMI <b>${bmi.toFixed(1)}</b>、估算体脂率 <b>${bf.toFixed(1)}%</b> 偏高，建议以<b>减脂</b>为主要目标。
+      每日制造约 <b>400 kcal</b> 热量缺口，蛋白质提高到每公斤体重 1.6-2g 以保留肌肉，
+      主食换成糙米、燕麦等慢碳，戒掉含糖饮料，每周可安排 1 次放纵餐防止代谢下降。`;
+  } else if(bmi < 18.5 || bfLow){
+    goal = '增肌增重 💪'; target = Math.round(tdee + 300);
+    advice = `你的 BMI <b>${bmi.toFixed(1)}</b>、估算体脂率 <b>${bf.toFixed(1)}%</b> 偏低，建议以<b>增肌</b>为主要目标。
+      每日保持约 <b>300 kcal</b> 热量盈余，蛋白质摄入每公斤体重 1.8-2.2g，
+      以力量训练为主（大肌群复合动作），训练后 30 分钟内补充碳水+蛋白质，保证 7-8 小时睡眠。`;
+  } else {
+    goal = '保持 & 塑形 ⚖️'; target = Math.round(tdee);
+    advice = `你的 BMI <b>${bmi.toFixed(1)}</b>、估算体脂率 <b>${bf.toFixed(1)}%</b> 处于健康范围，建议<b>保持热量平衡</b>并优化体成分：
+      适量增加蛋白质比例、每周 2-3 次力量训练塑造线条，饮食遵循"一拳主食、一掌蛋白、两拳蔬菜"原则。`;
+  }
+  store.set('profile', {target, h, w, age, sex});
+  store.set('planDetail', {bmi:+bmi.toFixed(1), bf:+bf.toFixed(1), bmr:Math.round(bmr), tdee:Math.round(tdee), target, goal, advice});
+  renderPlanResult(bmi, bf, bmr, tdee, target, goal, advice);
+  toast('专属计划已生成 ✓');
+}
+
+function pickFoods(cat, n, exclude){
+  const pool = FOODS.filter(f=>f.cat===cat && !exclude.includes(f.name));
+  return pool.sort(()=>Math.random()-.5).slice(0,n);
+}
+function mealPlan(target, isCut){
+  const plan = [];
+  const k = {早:.28, 午:.36, 晚:.28, 加:.08};
+  const b = pickFoods('主食',2,[]), pr = pickFoods('肉蛋',3,[]), vg = pickFoods('蔬果',3,['香蕉','牛油果']);
+  plan.push({t:'早餐', kcal:Math.round(target*k.早), foods:`${b[0].name} 80g + ${pr[0].name} 1-2份 + ${isCut?'黑咖啡':'牛奶'} 250ml`});
+  plan.push({t:'午餐', kcal:Math.round(target*k.午), foods:`${b[1]?b[1].name:'米饭'} 150g + ${pr[1].name} 120g + ${vg[0].name} 200g（少油烹饪）`});
+  plan.push({t:'晚餐', kcal:Math.round(target*k.晚), foods:`${pr[2].name} 100g + ${vg[1].name} + ${vg[2].name} 共300g${isCut?'，主食减半':' + 红薯 150g'}`});
+  plan.push({t:'加餐', kcal:Math.round(target*k.加), foods: isCut ? '黄瓜/番茄 随意 + 无糖酸奶 1杯' : '香蕉 1根 + 坚果 20g 或 蛋白粉 1勺'});
+  return plan;
+}
+function trainPlan(isCut){
+  return isCut ? [
+    ['周一','慢跑/椭圆机 40min + 核心训练 15min'],
+    ['周二','力量训练（上肢）30min + 快走 20min'],
+    ['周三','HIIT 间歇训练 25min'],
+    ['周四','休息或瑜伽拉伸 🧘'],
+    ['周五','力量训练（下肢）30min + 慢跑 20min'],
+    ['周六','游泳/骑行 45min'],
+    ['周日','充分休息，散步即可'],
+  ] : [
+    ['周一','胸 + 三头：卧推 4×8、上斜哑铃 3×10、绳索下压 3×12'],
+    ['周二','背 + 二头：引体/划船 4×8、硬拉 3×6、弯举 3×12'],
+    ['周三','休息 + 蛋白质补充'],
+    ['周四','腿：深蹲 4×8、腿举 3×10、提踵 4×15'],
+    ['周五','肩 + 核心：推举 4×8、侧平举 3×12、平板支撑 3×60s'],
+    ['周六','轻有氧 20min + 拉伸放松'],
+    ['周日','完全休息，保证睡眠 💤'],
+  ];
+}
+function renderPlanResult(bmi, bf, bmr, tdee, target, goal, advice){
+  const isCut = target < tdee;
+  const bmiLv = bmi<18.5?['偏瘦','#FFC53D'] : bmi<24?['正常','#8FC06A'] : bmi<28?['超重','#FF7A45'] : ['肥胖','#FF6B6B'];
+  $('planResult').innerHTML = `
+    <div class="sec-title">身体评估报告</div>
+    <div class="card">
+      <div class="metric-grid">
+        <div class="metric"><b style="color:${bmiLv[1]}">${bmi.toFixed(1)}</b><span>BMI · ${bmiLv[0]}</span></div>
+        <div class="metric"><b>${bf.toFixed(1)}%</b><span>估算体脂率</span></div>
+        <div class="metric"><b>${Math.round(bmr)}</b><span>基础代谢 kcal</span></div>
+        <div class="metric"><b>${Math.round(tdee)}</b><span>每日总消耗 kcal</span></div>
+      </div>
+      <div class="advice-box"><b>🎯 建议目标：${goal}</b><br>${advice}</div>
+      <div style="margin-top:14px;background:linear-gradient(135deg,#EE8B3A,#FFB877);border-radius:16px;padding:14px;color:#fff;text-align:center">
+        <div style="font-size:12px;opacity:.9">每日建议摄入</div>
+        <div style="font-size:30px;font-weight:800">${target} kcal</div>
+        <div style="font-size:12px;opacity:.9">蛋白质 ${Math.round(target*.25/4)}g · 碳水 ${Math.round(target*.45/4)}g · 脂肪 ${Math.round(target*.3/9)}g</div>
+      </div>
+    </div>
+    <div class="sec-title">📅 一日饮食计划（约 ${target} kcal）</div>
+    <div class="card">${mealPlan(target, isCut).map(m=>`
+      <div class="meal"><div class="mt"><span>${m.t}</span><span style="color:var(--orange)">${m.kcal} kcal</span></div>
+      <div class="foods">${m.foods}</div></div>`).join('')}
+    </div>
+    <div class="sec-title">🏋️ 每周训练计划</div>
+    <div class="card">${trainPlan(isCut).map(d=>`
+      <div class="train-day"><span class="d">${d[0]}</span><span>${d[1]}</span></div>`).join('')}
+    </div>`;
+  // 保存后刷新首页目标
+  $('targetKcalHome').textContent = target;
+}
+
+/* ================= AI 助手 ================= */
+const AI_RULES = [
+  {k:['你好','hi','hello','在吗'], a:'嗨呀！我们是布布🐻和一二🐼，你的专属营养搭子～\n\n可以问我们：食物热量、减肥建议、增肌方法、饮食计划……随时待命，有问必答！'},
+  {k:['减肥','减脂','瘦','降脂'], a:'减脂的核心是「热量缺口」🔥\n\n1️⃣ 每天比消耗少摄入 300-500 kcal，一周约减 0.5kg 纯脂肪\n2️⃣ 蛋白质吃够：每公斤体重 1.6-2g（鸡胸肉、鱼虾、蛋）\n3️⃣ 主食选慢碳：糙米、燕麦、红薯，量减到原来 2/3\n4️⃣ 戒掉含糖饮料，每天喝水 2L+\n5️⃣ 每周 3 次有氧 + 2 次力量，保住肌肉不掉代谢\n\n去「计划」页填身高体重，我帮你算精确热量目标 📋'},
+  {k:['增肌','长肌肉','练大'], a:'增肌三要素：吃够、练狠、睡好 💪\n\n1️⃣ 热量盈余 300 kcal/天，蛋白质每公斤体重 1.8-2.2g\n2️⃣ 以复合动作为主：深蹲、硬拉、卧推、划船，每组 6-12 次力竭\n3️⃣ 训练后 30 分钟内补充碳水 + 蛋白质（香蕉+蛋白粉）\n4️⃣ 每晚睡 7-8 小时，肌肉在睡眠中生长\n5️⃣ 同一肌群间隔 48 小时再练\n\n先去「计划」页评估下你当前适合增肌还是减脂吧！'},
+  {k:['早餐','早上吃'], a:'优质早餐公式 🌅：慢碳 + 蛋白 + 果蔬\n\n推荐组合：\n🥣 燕麦片 50g + 水煮蛋 2个 + 牛奶 250ml（约 400 kcal）\n🍞 全麦面包 2片 + 鸡蛋 + 无糖酸奶 + 小番茄\n\n避雷：油条、蛋糕、含糖豆浆，升糖快饿得也快！'},
+  {k:['晚餐','晚上吃'], a:'晚餐建议 19 点前吃完 🌙\n\n原则：少主食、多蛋白、大量蔬菜\n🥗 推荐：清蒸鱼/鸡胸肉 100g + 两种绿叶菜 300g，主食减半\n\n睡前 3 小时别再进食，饿了可以喝无糖酸奶或吃黄瓜番茄。'},
+  {k:['平台期','不掉秤','卡住'], a:'遇到平台期别慌，这是身体的自我保护 🛡️\n\n试试这几招：\n1️⃣ 调整热量：重新计算 TDEE（体重变了消耗也变了）\n2️⃣ 改变训练模式：有氧换 HIIT，力量加重量\n3️⃣ 安排一次「欺骗餐」重启代谢\n4️⃣ 检查隐形热量：酱料、饮料、零食\n5️⃣ 保证睡眠，压力大皮质醇高也会囤脂'},
+  {k:['水','喝水'], a:'每天建议喝水 35ml × 体重(kg) 💧\n比如 60kg 约 2.1L。少量多次，运动前后各补 300ml。注意：奶茶、果汁不算水，还会额外加糖！'},
+  {k:['体脂','体脂率'], a:'体脂率估算公式（Deurenberg）📐\n体脂% = 1.2×BMI + 0.23×年龄 − 10.8×性别 − 5.4（男=1，女=0）\n\n健康范围：男性 12%-20%，女性 20%-28%\n\n去「计划」页输入身高体重年龄，我直接帮你算好并给出增肌/减脂建议～'},
+  {k:['训练','运动','健身','锻炼'], a:'运动安排建议 🏋️\n\n🔥 减脂期：每周 3 次有氧（30-45min）+ 2 次力量，HIIT 效率最高\n💪 增肌期：每周 4 次力量分化训练（胸/背/腿/肩）+ 少量有氧\n\n详细的一周训练表在「计划」页生成，跟着练就行！'},
+  {k:['外卖','点外卖'], a:'外卖这样点不怕胖 🛵\n\n✅ 推荐：轻食沙拉、日式定食、白切鸡饭（去皮）、清汤麻辣烫（多菜少丸子）\n❌ 避雷：黄焖鸡（汁拌饭热量爆炸）、炒饭炒面、干锅类\n\n万能公式：1 份蛋白质 + 2 份蔬菜 + 主食减半，备注「少油少盐」很有效！'},
+  {k:['聚餐','应酬','饭局','吃火锅'], a:'[YIYI] 聚餐生存指南 🍻\n\n1️⃣ 开吃前先喝杯水或先吃蔬菜垫胃\n2️⃣ 火锅选清汤/番茄锅，多涮瘦肉鱼虾和蔬菜，少丸子加工品\n3️⃣ 酱料用酱油+醋+蒜，避开麻酱香油碟（一勺≈100kcal）\n4️⃣ 酒精热量高，啤酒一瓶≈150kcal，能少则少\n5️⃣ 第二天清淡饮食 + 多喝水即可恢复，不用焦虑 [BUBU]'},
+  {k:['零食','嘴馋','想吃零'], a:'[BUBU] 嘴馋救星清单 🍿（每份<100kcal）\n\n🥒 黄瓜/小番茄 随便吃\n🥚 水煮蛋 1 个\n🥛 无糖酸奶 100g\n🍎 苹果半个\n🌰 原味坚果 10g（一小把）\n\n想吃薯片辣条时，先喝 300ml 水等 10 分钟，80% 的馋劲会过去～ [YIYI]'},
+  {k:['夜宵','宵夜','半夜饿'], a:'[YIYI] 夜宵原则 🌙：睡前 3 小时尽量不吃\n\n实在饿推荐：无糖酸奶 100g / 水煮蛋 1 个 / 黄瓜一根 / 温牛奶 200ml\n\n千万别碰：烧烤、泡面、甜品，夜间胰岛素敏感性低，更容易囤脂肪！'},
+  {k:['水果'], a:'[BUBU] 水果这样吃 🍎\n\n减脂期优选：草莓、蓝莓、西瓜、柚子（低糖低热量）\n控制份量：香蕉、葡萄、荔枝、榴莲（糖分高）\n\n每天 200-350g 即可，果汁≠水果，榨汁后纤维没了只剩糖！'},
+  {k:['蛋白质','蛋白'], a:'[YIYI] 蛋白质是减脂增肌的核心 💪\n\n每天目标：每公斤体重 1.2-2g\n优质来源（每100g蛋白含量）：\n🥚 鸡蛋 13g · 🍗 鸡胸肉 19g · 🦐 虾 18g\n🥩 瘦牛肉 20g · 🐟 鳕鱼 20g · 🧈 豆腐 8g\n\n一日三餐每餐都要有蛋白质，饱腹感强还能保住肌肉！'},
+  {k:['碳水'], a:'碳水不是敌人，选对才重要 🍚\n\n✅ 慢碳（推荐）：糙米、燕麦、红薯、玉米、全麦面包\n❌ 快碳（少吃）：白面包、蛋糕、含糖饮料\n\n减脂期碳水占全天热量 40-45%，训练日可以适当多吃～'},
+  {k:['代谢','基础代谢'], a:'基础代谢（BMR）估算公式 📐\n\n男：10×体重 + 6.25×身高 − 5×年龄 + 5\n女：10×体重 + 6.25×身高 − 5×年龄 − 161\n\n提升代谢的方法：增肌、多喝水、睡够 7-8h、别节食过度（低于 BMR 身体会进入省电模式）\n\n去「计划」页我直接帮你算好全套数据！'},
+  {k:['bmi','BMI'], a:'BMI = 体重(kg) ÷ 身高²(m) 📊\n\n<18.5 偏瘦 | 18.5-23.9 正常 | 24-27.9 超重 | ≥28 肥胖\n\nBMI 不区分肌肉和脂肪，健身人群建议结合体脂率看～去「计划」页一键算 BMI + 体脂率'},
+  {k:['便秘','排便'], a:'饮食改善便秘 🌿\n\n1️⃣ 膳食纤维每天 25-30g：燕麦、红薯、火龙果、西梅\n2️⃣ 喝水 2L+（纤维吸水才管用）\n3️⃣ 早上空腹一杯温水\n4️⃣ 适量好油脂：坚果、牛油果\n5️⃣ 久坐是帮凶，每小时起来活动 5 分钟'},
+  {k:['熬夜','失眠','睡眠'], a:'睡不好真的会长胖 😴\n\n睡眠不足 → 瘦素↓ 饥饿素↑ → 第二天多摄入约 300kcal\n\n建议：23 点前入睡，睡前 1 小时远离手机，晚餐别吃太撑\n失眠可以喝温牛奶（含色氨酸），避免下午 2 点后喝咖啡'},
+  {k:['食堂','学生党','学校'], a:'学生党食堂攻略 🎓\n\n打饭口诀：一荤一素一蛋白\n✅ 优选：清蒸鱼、白切鸡、番茄炒蛋、绿叶菜、鸡腿（去皮）\n❌ 少碰：红烧类（糖油多）、糖醋类、油炸食品\n\n米饭吃一拳大小，汤选清汤不选勾芡。宿舍囤货：牛奶、鸡蛋、燕麦、水果～'},
+  {k:['谢谢','感谢'], a:'不客气～坚持就是胜利，有任何饮食问题随时找我 🥑✨'},
+];
+
+/* ---------- 常见份量估算 ---------- */
+const UNIT_G = {碗:200, 杯:250, 个:150, 根:120, 片:35, 块:80, 份:300, 只:100, 条:250, 袋:100, 瓶:500, 勺:15, 串:50, 包:100, 颗:20};
+const FOOD_PORTION = {鸡蛋:55, 鸭蛋:65, 苹果:200, 香蕉:120, 橙子:200, 玉米:200, 红薯:200, 紫薯:150, 鸡腿:120, 鸡翅:45, 虾:15, 饺子:20, 包子:90, 小笼包:25, 烧麦:45, 蛋挞:50, 月饼:80, 火龙果:350, 西瓜:500, 牛排:180, 油条:60, 烤肠:60, 汤圆:20, 粽子:100, 羊肉串:30, 牛肉串:30, 烤鸡翅:45, 烤鱿鱼:80, 烤生蚝:80, 烤面筋:40, 烤馒头片:50, 桃子:200, 梨:250, 猕猴桃:100, 荔枝:25, 樱桃:10, 芒果:250};
+
+function matchFoods(q){
+  return FOODS.filter(f => q.includes(f.name) || f.tags.split(' ').some(t => t.length > 1 && q.includes(t)))
+    .sort((a,b) => (q.includes(b.name)?1:0) - (q.includes(a.name)?1:0));
+}
+function foodCard(food, grams){
+  const r = rateFood(food.kcal);
+  const base = `${face()} ${food.e} ${food.name}：每100g 约 ${food.kcal} kcal\n蛋白质 ${food.p}g · 碳水 ${food.c}g · 脂肪 ${food.f}g`;
+  const portion = grams ? `\n📏 你这份约 ${grams}g ≈ ${Math.round(food.kcal*grams/100)} kcal` : '';
+  return `${base}${portion}\n\n评定：${r.label}（健康评分 ${r.score}/100）\n${foodTip(food)}\n${face()}`;
+}
+function aiReply(q){
+  q = q.toLowerCase();
+  const foods = matchFoods(q);
+
+  /* 1. 多食物对比 */
+  if(foods.length >= 2 && /(比|哪个|还是|对比|区别|高低|选)/.test(q)){
+    const sorted = foods.slice(0,4).sort((a,b)=>a.kcal-b.kcal);
+    const lines = sorted.map(f=>`${f.e} ${f.name}：${f.kcal} kcal/100g（健康评分 ${rateFood(f.kcal).score}）`).join('\n');
+    const best = sorted[0], worst = sorted[sorted.length-1];
+    return `布布搬出小秤帮你称了算 ⚖️（按热量从低到高）\n\n${lines}\n\n一二的结论：${best.name} 热量最低，闭眼选它！${worst.name} 每100g 比 ${best.name} 多 ${worst.kcal-best.kcal} kcal，相当于多爬 ${Math.round((worst.kcal-best.kcal)/5)} 层楼梯哦～`;
+  }
+
+  /* 2. 份量估算：一碗米饭 / 两个鸡蛋 */
+  if(foods.length){
+    const food = foods[0];
+    const m = q.match(/([0-9]+|一|二|两|三|四|五|半)\s*(碗|杯|个|根|片|块|份|只|条|袋|瓶|勺|串|包|颗)/);
+    if(m){
+      const numMap = {一:1, 二:2, 两:2, 三:3, 四:4, 五:5, 半:0.5};
+      const num = parseFloat(m[1]) || numMap[m[1]] || 1;
+      const unitG = FOOD_PORTION[food.name] || UNIT_G[m[2]] || 100;
+      const grams = Math.round(num * unitG);
+      const kcal = Math.round(food.kcal * grams / 100);
+      const target = getProfile().target;
+      return `${food.e} ${num>1?m[1]:''}${m[2]}${food.name} ≈ ${grams}g，约 ${kcal} kcal\n\n布布掰着指头算了算：占你每日目标（${target} kcal）的 ${Math.round(kcal/target*100)}%\n${rateFood(food.kcal).label} · ${foodTip(food)}\n\n点底部「📷」拍一下就能快速记录哦～`;
+    }
+    /* 3. 食物热量/能不能吃 */
+    if(/(热量|多少|大卡|卡路里|能吃|好吗|高吗|会胖|减肥|减脂)/.test(q)){
+      let extra = '';
+      if(/(能吃|会胖|减肥|减脂)/.test(q)){
+        extra = food.kcal < 150 ? '\n\n✅ 一二拍胸脯：减脂期放心吃，少油烹饪就完美～'
+              : food.kcal < 300 ? '\n\n⚠️ 布布提醒：可以吃，但一餐别超过 150g 哦'
+              : '\n\n🔴 一二拉住你：高热量警告！减脂期浅尝辄止，一周最多解馋一次';
+      }
+      return foodCard(food) + extra;
+    }
+    return foodCard(food) + '\n\n💡 一二支招：还可以问"一碗' + food.name + '多少热量"，或"' + food.name + '和' + (FOODS.find(f=>f.cat===food.cat&&f.name!==food.name)||FOODS[0]).name + '哪个好"～';
+  }
+
+  /* 4. 规则问答 */
+  for(const r of AI_RULES){ if(r.k.some(k=>q.includes(k))) return r.a; }
+
+  /* 5. 推荐类 */
+  if(/(推荐|吃什么|吃点啥|吃啥)/.test(q)){
+    const lows = FOODS.filter(f=>f.kcal<150 && f.cat!=='饮品');
+    const picks = lows.sort(()=>Math.random()-0.5).slice(0,3);
+    return `布布&一二今日低卡推荐 🌟\n\n${picks.map(f=>`${f.e} ${f.name}：${f.kcal} kcal/100g`).join('\n')}\n\n都是低热量高营养的好选择，去「食物库」还能挖到更多宝～`;
+  }
+  if(/计划|食谱|怎么吃/.test(q)) return '一二拉着你去「计划」页 📋 输入身高体重，我们帮你生成专属饮食+训练计划，精确到每餐克数，比私教还贴心 ✨';
+  return '布布挠了挠头 🐻 这个问题把我们问住啦……\n\n不过这些我们超擅长：\n· 查 160+ 种食物热量（如"青椒炒肉热量"）\n· 份量估算（如"一串烤羊肉热量"）\n· 食物对比（如"牛排和鸡胸肉哪个好"）\n· 减肥/增肌/外卖/聚餐攻略\n\n换个方式问问我们嘛～';
+}
+function addMsg(text, who){
+  const log = $('chatLog');
+  const div = document.createElement('div');
+  div.className = 'msg '+who;
+  const aiAva = Math.random()<0.5 ? 'bubu' : 'yiyi';
+  // [BUBU][YIYI] 占位符替换成小头像图（表情包）
+  let body = text.replace(/\[BUBU\]/g,'<img src="./bubu.png" style="width:32px;height:32px;border-radius:50%;vertical-align:middle;margin:0 2px">')
+                 .replace(/\[YIYI\]/g,'<img src="./yiyi.png" style="width:32px;height:32px;border-radius:50%;vertical-align:middle;margin:0 2px">');
+  div.innerHTML = `<div class="avatar">${who==='ai'?`<img src="./${aiAva}.png" alt="">`:'😋'}</div><div class="bubble">${body.replace(/\n/g,'<br>')}</div>`;
+  log.appendChild(div); log.scrollTop = log.scrollHeight;
+  return div;
+}
+function ask(q){ $('chatInput').value = q; sendChat(); }
+function sendChat(){
+  const q = $('chatInput').value.trim(); if(!q) return;
+  $('chatInput').value = '';
+  addMsg(q,'me');
+  const tp = addMsg('<span class="typing"><i></i><i></i><i></i></span>','ai');
+  setTimeout(()=>{ tp.querySelector('.bubble').innerHTML = aiReply(q).replace(/\n/g,'<br>'); $('chatLog').scrollTop = $('chatLog').scrollHeight; }, 700+Math.random()*600);
+}
+
+/* ================= 初始化 ================= */
+renderCats(); renderFoods(); renderHome();
+const savedProfile = store.get('profile', null);
+if(savedProfile && savedProfile.h){ 
+  $('height').value = savedProfile.h; $('weight').value = savedProfile.w; $('age').value = savedProfile.age;
+}
+const savedPlan = store.get('planDetail', null);
+if(savedPlan){
+  renderPlanResult(savedPlan.bmi, savedPlan.bf, savedPlan.bmr, savedPlan.tdee, savedPlan.target, savedPlan.goal, savedPlan.advice);
+}
+addMsg('嗨～我是布布🐻 我是一二🐼！\n\n我们是你的营养搭子，能帮你：\n📸 拍一下就算出食物热量\n🥗 定制减肥/增肌饮食计划\n🏋️ 安排训练计划\n\n点下方快捷问题，或直接输入食物名字，比如"一串烤羊肉热量"，试试看吧～','ai');
+</script>
+</body>
+</html>
